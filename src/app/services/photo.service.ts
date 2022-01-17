@@ -2,8 +2,11 @@ import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Storage } from '@capacitor/storage';
 
+import { Platform } from '@ionic/angular';
+
 import { Injectable } from '@angular/core';
 import { IUserPhoto } from '../models/iuser-photo';
+import { Capacitor } from '@capacitor/core';
 
 @Injectable({
   providedIn: 'root'
@@ -11,8 +14,9 @@ import { IUserPhoto } from '../models/iuser-photo';
 export class PhotoService {
 
   public photos : IUserPhoto[] = [];
+  private PHOTOS_STORAGE : string = 'Photos'; 
 
-  constructor() { }
+  constructor(private plateform : Platform) { }
 
   public async addNewToGallery(){
     //Prendre photo
@@ -40,15 +44,42 @@ export class PhotoService {
       //Ajoute photo dans la gallerie
       this.photos.unshift(savedImageFile);}
     );
-     */
+      */
+  
+    //Sauvegarder liste photos dans la mémoire de l'application
+    Storage.set({
+      key : this.PHOTOS_STORAGE,
+      value: JSON.stringify(this.photos)
+    });
+  }
+
+  public async loadSaved(){
+    const photolist = await Storage.get({ key : this.PHOTOS_STORAGE});
+    this.photos = JSON.parse(photolist.value) ?? [];
+    if(!this.plateform.is("hybrid")){
+      for(let photo of this.photos){
+        const readFile = await Filesystem.readFile({
+          path : photo.filePath,
+          directory : Directory.Data
+        });
+        photo.webviewPath = `data:image/jpeg;base64,${readFile.data}`;
+        //photo.webviewPath = 'data:image/jpeg;base64,'+readFile.data;
+      }
+    }
   }
 
   public async deleteFromGallery(photo : IUserPhoto){
-    await Filesystem.deleteFile({
-      path: photo.filePath,
-      directory : Directory.Data
-    });
+    if(this.plateform.is("hybrid")){
+        await Filesystem.deleteFile({
+        path: photo.filePath.substring(photo.filePath.lastIndexOf('/')+1),
+        directory : Directory.Data
+      });
+    }
     this.photos.splice(this.photos.findIndex(p=>p.filePath == photo.filePath),1);
+    Storage.set({
+      key : this.PHOTOS_STORAGE,
+      value: JSON.stringify(this.photos)
+    });
   }
   
   private async savePicture(photo: Photo): Promise<IUserPhoto>{
@@ -64,19 +95,34 @@ export class PhotoService {
     });
 
     //Retourne les positions de sauvegardes du fichier
-    let info : IUserPhoto = {
-      filePath : filename,
-      webviewPath : photo.webPath
-    };
-    console.log(info);
-    console.log(Directory.Data);
-    return info;
+    if(this.plateform.is("hybrid")){
+      return {
+        filePath: savedFile.uri,
+        webviewPath : Capacitor.convertFileSrc(savedFile.uri)
+      };
+    }
+    else{
+      return {
+        filePath : filename,
+        webviewPath : photo.webPath
+      };
+    }
+    
   }
 
   private async readAsBase64(photo: Photo){
-    const response = await fetch(photo.webPath);
-    const blob = await response.blob();
-    return await this.convertBlobAsBase64(blob) as string;
+    if(this.plateform.is("hybrid")){
+      const file = await Filesystem.readFile({
+        path : photo.path
+      });
+      return file.data;
+    }
+    else
+    {
+      const response = await fetch(photo.webPath);
+      const blob = await response.blob();
+      return await this.convertBlobAsBase64(blob) as string;
+    }
   }
 
   private convertBlobAsBase64 = (blob : Blob) => new Promise((resolve, reject)=>

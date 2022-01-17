@@ -13,7 +13,8 @@ export class Tab2Page implements OnInit{
 
   constructor(private photoSrv : PhotoService) {}
 
-  ngOnInit(): void {
+  public async ngOnInit(): Promise<void> {
+    await this.photoSrv.loadSaved();
     this.photos = this.photoSrv.photos;
   }
   
