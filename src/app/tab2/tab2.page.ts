@@ -22,4 +22,9 @@ export class Tab2Page implements OnInit{
     this.photos = this.photoSrv.photos;
   }
 
+  public async deletePhotoFromGallery(photo: IUserPhoto){
+    //Demander à photo service de supprimer la photo
+    await this.photoSrv.deleteFromGallery(photo);
+    this.photos = this.photoSrv.photos;
+  }
 }

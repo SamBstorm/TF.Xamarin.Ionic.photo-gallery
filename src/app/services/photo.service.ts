@@ -26,6 +26,29 @@ export class PhotoService {
     const savedImageFile = await this.savePicture(capturedPhoto);
     //Ajoute photo dans la gallerie
     this.photos.unshift(savedImageFile);
+    
+    /**Si on utilise l'objet Promise avec then() et catch()
+     * 
+     * //Prendre photo
+    Camera.getPhoto({
+      resultType : CameraResultType.Uri,
+      source : CameraSource.Camera,
+      quality : 100
+    }).then(
+      async datas =>{
+      const savedImageFile = await this.savePicture(datas);
+      //Ajoute photo dans la gallerie
+      this.photos.unshift(savedImageFile);}
+    );
+     */
+  }
+
+  public async deleteFromGallery(photo : IUserPhoto){
+    await Filesystem.deleteFile({
+      path: photo.filePath,
+      directory : Directory.Data
+    });
+    this.photos.splice(this.photos.findIndex(p=>p.filePath == photo.filePath),1);
   }
   
   private async savePicture(photo: Photo): Promise<IUserPhoto>{
